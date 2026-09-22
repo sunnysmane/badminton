@@ -1,9 +1,12 @@
 /* Rally Point service worker — cache-first app shell so the whole app runs offline. */
-var CACHE = "rallypoint-shell-v7";
+var CACHE = "rallypoint-shell-v8";
 var ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    // bypass the HTTP cache so a new SW always precaches fresh files
+    return c.addAll(ASSETS.map(function (u) { return new Request(u, { cache: "reload" }); }));
+  }));
   self.skipWaiting();
 });
 

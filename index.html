@@ -678,13 +678,18 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
   <form class="login-card" id="loginForm">
     <div class="login-brand">Rally Point</div>
     <div class="login-tag">Tournament control desk</div>
-    <p class="field-label">Username</p>
+    <div id="loginNameRow" style="display:none">
+      <p class="field-label">Your name</p>
+      <input class="txt" id="loginName" autocomplete="name">
+      <p class="field-label" style="margin-top:12px"></p>
+    </div>
+    <p class="field-label" id="loginUserLabel">Username</p>
     <input class="txt" id="loginUser" autocomplete="username" autocapitalize="none">
     <p class="field-label" style="margin-top:12px">Password</p>
     <input class="txt" id="loginPw" type="password" autocomplete="current-password">
     <div class="login-err" id="loginErr"></div>
-    <button class="btn gold" type="submit" style="width:100%;padding:11px;font-size:14px">Sign in</button>
-    <p class="login-hint">Sign in with the account your tournament admin gave you.<br>Admins can add users and set roles in <b>Users</b>.</p>
+    <button class="btn gold" type="submit" id="loginBtn" style="width:100%;padding:11px;font-size:14px">Sign in</button>
+    <p class="login-hint" id="loginHint">Sign in with the account your tournament admin gave you.<br>Admins can add users and set roles in <b>Users</b>.</p>
   </form>
 </div>
 
@@ -710,6 +715,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 var KEY = "rallypoint-v2";
 var OLDKEY = "rallypoint-v1";
 var S = null;
+var CLOUD = null; // set at boot on the Firebase-hosted build; null = local/offline mode
 
 function defaultFormat(){
   return {
@@ -749,6 +755,7 @@ var ROLES = {
   viewer:    { label:"Viewer",          desc:"Read-only: standings, fixtures, players, display and exports.", perms:{} }
 };
 function currentUser(){
+  if(CLOUD) return CLOUD.user;
   if(!S.sessionUser) return null;
   for(var i=0;i<S.users.length;i++) if(S.users[i].id===S.sessionUser) return S.users[i];
   return null;
@@ -796,9 +803,18 @@ function migrateV1(){
     save();
   }catch(e){}
 }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
-function uid(p){ if(!S) return p+Math.floor(Math.random()*1e6); return p + (S.seq++); }
-load();
+function save(){
+  if(CLOUD){
+    CLOUD.save({ seq:S.seq, players:S.players, tournaments:S.tournaments }, S.live);
+    return;
+  }
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+}
+function uid(p){
+  if(CLOUD) return p + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  if(!S) return p+Math.floor(Math.random()*1e6);
+  return p + (S.seq++);
+}
 
 /* ================= helpers ================= */
 function $(id){ return document.getElementById(id); }
@@ -920,8 +936,9 @@ function renderSideFoot(){
       + (C? "Category: "+esc(C.name) : "No category yet")
     : "No tournament selected";
   if(u){
+    var R = ROLES[u.role] || ROLES.viewer;
     h += '<div class="foot-user"><span style="color:var(--ink);font-weight:600">'+esc(u.name)+'</span>'
-      + '<span class="role-badge '+u.role+'">'+ROLES[u.role].label+'</span></div>';
+      + '<span class="role-badge '+u.role+'">'+R.label+'</span></div>';
   }
   $("sideFoot").innerHTML = h;
 }
@@ -930,10 +947,36 @@ function updateAuthUI(){
   $("loginEl").classList.toggle("show", !u);
   $("navUsers").style.display = can("users") ? "" : "none";
   $("navLogout").style.display = u ? "" : "none";
+  if(CLOUD){
+    var boot = CLOUD.needsBootstrap && !u;
+    $("loginUserLabel").textContent = "Email";
+    $("loginNameRow").style.display = boot ? "" : "none";
+    $("loginBtn").textContent = boot ? "Create admin account" : "Sign in";
+    $("loginHint").innerHTML = boot
+      ? "First run — create the tournament admin account.<br>You'll add organizers, scorers and viewers afterwards in <b>Users</b>."
+      : "Sign in with the account your tournament admin gave you.<br>Works on every device — scores and standings stay in sync.";
+  }
 }
 function doLogin(){
   var un = $("loginUser").value.trim();
   var pw = $("loginPw").value;
+  if(CLOUD){
+    $("loginErr").textContent = "";
+    $("loginBtn").disabled = true;
+    var p = (CLOUD.needsBootstrap && !CLOUD.user)
+      ? CLOUD.bootstrapAdmin($("loginName").value.trim() || "Administrator", un, pw)
+      : CLOUD.login(un, pw);
+    p.then(function(){
+      $("loginBtn").disabled = false;
+      $("loginPw").value = "";
+      updateAuthUI();
+      renderView(currentView);
+    }, function(err){
+      $("loginBtn").disabled = false;
+      $("loginErr").textContent = CLOUD.friendly(err);
+    });
+    return;
+  }
   var u = null;
   for(var i=0;i<S.users.length;i++) if(S.users[i].username.toLowerCase()===un.toLowerCase()) u = S.users[i];
   if(!u || u.pw !== pwHash(pw)){
@@ -948,9 +991,10 @@ function doLogin(){
   renderView(currentView);
 }
 function doLogout(){
+  if(currentView==="users") currentView = "tournaments";
+  if(CLOUD){ CLOUD.logout(); return; } // onAuth callback refreshes the UI
   S.sessionUser = null;
   save();
-  if(currentView==="users") currentView = "tournaments";
   updateAuthUI();
 }
 
@@ -2062,6 +2106,7 @@ function renderUsers(){
     $("usersInner").innerHTML = '<div class="empty" style="padding-top:60px">Only an admin can manage users.</div>';
     return;
   }
+  if(CLOUD){ renderUsersCloud(); return; }
   var me = currentUser();
   var h = "";
   h += '<div class="eyebrow">Add user</div>';
@@ -2106,12 +2151,83 @@ function renderUsers(){
   h += '<p class="note">Accounts and roles are stored in this browser with the tournament data — they organize the workflow on this device and are not internet-grade security.</p>';
   $("usersInner").innerHTML = h;
 }
+function renderUsersCloud(){
+  var me = currentUser();
+  var h = "";
+  h += '<div class="eyebrow">Add user</div>';
+  h += '<div class="card">';
+  h += '<div class="row">';
+  h += '<div class="grow"><p class="field-label">Full name</p><input class="txt" id="nuName" placeholder="e.g. Kavita Rane"></div>';
+  h += '<div class="grow"><p class="field-label">Email (their sign-in)</p><input class="txt" id="nuUser" autocapitalize="none" inputmode="email" placeholder="kavita@example.com"></div>';
+  h += '</div><div class="row" style="margin-top:8px">';
+  h += '<div class="grow"><p class="field-label">Password</p><input class="txt" id="nuPw" type="password" placeholder="min 6 characters"></div>';
+  h += '<div class="grow"><p class="field-label">Role</p><select class="sel" id="nuRole">';
+  Object.keys(ROLES).forEach(function(r){ h += '<option value="'+r+'"'+(r==="scorer"?" selected":"")+'>'+ROLES[r].label+'</option>'; });
+  h += '</select></div>';
+  h += '<button class="btn gold" id="addUser">Add</button></div>';
+  h += '<p class="note" style="margin:8px 0 0">Share the email + password with them — the same account works on every device, online.</p>';
+  h += '</div>';
+
+  h += '<div class="eyebrow">Roles &amp; access</div>';
+  h += '<div class="card">';
+  Object.keys(ROLES).forEach(function(r){
+    h += '<div class="list-row"><span class="role-badge '+r+'">'+ROLES[r].label+'</span><div class="nm" style="font-weight:400;font-size:12.5px;color:var(--dim);white-space:normal">'+ROLES[r].desc+'</div></div>';
+  });
+  h += '</div>';
+
+  h += '<div class="eyebrow">Users <span class="cnt">'+CLOUD.usersCache.length+'</span></div>';
+  h += '<div class="card">';
+  CLOUD.usersCache.forEach(function(u){
+    var self = u.id === me.id;
+    h += '<div class="list-row" style="flex-wrap:wrap">';
+    h += '<div class="nm">'+esc(u.name||"")+' <span style="color:var(--dim);font-weight:400">· '+esc(u.email||"")+'</span>'+(self?' <span style="color:var(--gold2);font-size:11px">(you)</span>':"")+'</div>';
+    if(self){
+      h += '<span class="role-badge '+u.role+'">'+(ROLES[u.role]||ROLES.viewer).label+'</span>';
+    } else {
+      h += '<select class="sel" style="width:auto;padding:6px 26px 6px 8px;font-size:12px" data-urole="'+u.id+'">';
+      Object.keys(ROLES).forEach(function(r){ h += '<option value="'+r+'"'+(u.role===r?" selected":"")+'>'+ROLES[r].label+'</option>'; });
+      h += '</select>';
+      h += '<button class="del" data-deluser="'+u.id+'" aria-label="Revoke access">✕</button>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<div class="card"><div class="row">'
+    + '<div class="grow"><p class="field-label">Change my password</p><input class="txt" id="ownPw" type="password" placeholder="new password (min 6)"></div>'
+    + '<button class="btn" id="ownPwSet">Set</button></div>'
+    + '<p class="note" style="margin:8px 0 0">Each person changes their own password after signing in. Removing a user revokes their access everywhere.</p></div>';
+  $("usersInner").innerHTML = h;
+}
 function bindUsersStatic(){
   var root = $("usersInner");
   root.addEventListener("click", function(e){
     if(!can("users")) return;
-    var t = e.target.closest("#addUser,[data-upwset],[data-deluser]");
+    var t = e.target.closest("#addUser,[data-upwset],[data-deluser],#ownPwSet");
     if(!t) return;
+    if(CLOUD){
+      if(t.id==="addUser"){
+        var cn = $("nuName").value.trim(), ce = $("nuUser").value.trim(), cp = $("nuPw").value;
+        if(!cn || !ce){ alert("Name and email are required."); return; }
+        if(cp.length < 6){ alert("Password must be at least 6 characters."); return; }
+        t.disabled = true;
+        CLOUD.addUser(cn, ce, cp, $("nuRole").value).then(function(){
+          t.disabled = false; renderUsers();
+        }, function(err){ t.disabled = false; alert(CLOUD.friendly(err)); });
+      }
+      else if(t.id==="ownPwSet"){
+        var op = $("ownPw").value;
+        if(op.length < 6){ alert("Password must be at least 6 characters."); return; }
+        CLOUD.changeOwnPassword(op).then(function(){
+          $("ownPw").value = ""; alert("Password updated.");
+        }, function(err){ alert(CLOUD.friendly(err)); });
+      }
+      else if(t.dataset.deluser){
+        if(confirm("Revoke this user's access?")){
+          CLOUD.revokeUser(t.dataset.deluser).catch(function(err){ alert(CLOUD.friendly(err)); });
+        }
+      }
+      return;
+    }
     if(t.id==="addUser"){
       var name = $("nuName").value.trim(), un = $("nuUser").value.trim(), pw = $("nuPw").value;
       if(!name || !un){ alert("Name and username are required."); return; }
@@ -2141,6 +2257,10 @@ function bindUsersStatic(){
     if(!can("users")) return;
     var t = e.target;
     if(t.dataset.urole){
+      if(CLOUD){
+        CLOUD.setRole(t.dataset.urole, t.value).catch(function(err){ alert(CLOUD.friendly(err)); renderUsers(); });
+        return;
+      }
       S.users.forEach(function(u){ if(u.id===t.dataset.urole) u.role = t.value; });
       save(); renderUsers();
     }
@@ -2445,7 +2565,7 @@ function snapshot(){
     sets:L.sets, setsWon:L.setsWon, midSwapDone:L.midSwapDone, phase:L.phase,
     firstServerOfSet:L.firstServerOfSet
   }));
-  if(L.history.length > 400) L.history.shift();
+  if(L.history.length > (CLOUD ? 60 : 400)) L.history.shift();
 }
 function addPoint(w){
   var L = S.live;
@@ -3004,6 +3124,7 @@ function renderDisplay(){
 }
 
 window.addEventListener("storage", function(e){
+  if(CLOUD) return; // cloud mode syncs through Firestore, not localStorage
   if(e.key !== KEY) return;
   load();
   delete S.__needsSeed;
@@ -3011,22 +3132,95 @@ window.addEventListener("storage", function(e){
   if(displayMode) renderDisplay();
   else renderView(currentView);
 });
-setInterval(function(){ if(displayMode){ load(); delete S.__needsSeed; renderDisplay(); } }, 4000);
+setInterval(function(){
+  if(displayMode && !CLOUD){ load(); delete S.__needsSeed; renderDisplay(); }
+}, 4000);
 
 /* ================= boot ================= */
-bindToursStatic();
-bindPlayersStatic();
-bindMatchesStatic();
-bindUsersStatic();
-$("loginForm").addEventListener("submit", function(e){ e.preventDefault(); doLogin(); });
-$("navLogout").addEventListener("click", doLogout);
-if(S.__needsSeed){ seedDemo(); }
-delete S.__needsSeed;
-save();
-updateAuthUI();
-renderView("tournaments");
-if(S.live && can("score")){ goto_("live"); }
-if(location.hash === "#display"){ enterDisplay(); }
+function bindAll(){
+  bindToursStatic();
+  bindPlayersStatic();
+  bindMatchesStatic();
+  bindUsersStatic();
+  $("loginForm").addEventListener("submit", function(e){ e.preventDefault(); doLogin(); });
+  $("navLogout").addEventListener("click", doLogout);
+}
+var __booted = false;
+function bootLocal(){
+  if(__booted) return; __booted = true;
+  load();
+  bindAll();
+  if(S.__needsSeed){ seedDemo(); }
+  delete S.__needsSeed;
+  save();
+  updateAuthUI();
+  renderView("tournaments");
+  if(S.live && can("score")){ goto_("live"); }
+  if(location.hash === "#display"){ enterDisplay(); }
+}
+
+/* ---- cloud mode: Firestore is the source of truth ---- */
+function applyCloudData(json){
+  var d = null;
+  try{ d = json ? JSON.parse(json) : null; }catch(e){}
+  if(d){
+    S.seq = d.seq || S.seq;
+    S.players = d.players || [];
+    S.tournaments = d.tournaments || [];
+  } else {
+    S.players = []; S.tournaments = [];
+  }
+  if(S.sel.t && !tourById(S.sel.t)) S.sel = { t:null, c:null };
+  if(displayMode){ renderDisplay(); return; }
+  renderView(currentView);
+}
+function applyCloudLive(json){
+  var d = null;
+  try{ d = json ? JSON.parse(json) : null; }catch(e){}
+  S.live = d && d.matchId ? d : null;
+  if(displayMode){ renderDisplay(); return; }
+  if(currentView === "live") renderLive();
+}
+var __cloudSeeded = false;
+function cloudMaybeSeed(){
+  // first ever data on a fresh cloud system: seed the demo once, by the admin
+  if(__cloudSeeded || !CLOUD || !can("users")) return;
+  if(S.players.length || S.tournaments.length) return;
+  __cloudSeeded = true;
+  seedDemo();
+  save();
+  if(!displayMode) renderView(currentView);
+}
+function bootCloud(){
+  if(__booted) return; __booted = true;
+  S = freshState();
+  bindAll();
+  CLOUD.init().then(function(){
+    CLOUD.start({
+      onData: function(json){ applyCloudData(json); if(json == null) cloudMaybeSeed(); },
+      onLive: function(json){ applyCloudLive(json); },
+      onUsers: function(){ if(currentView==="users" && !displayMode) renderUsers(); },
+      onAuth: function(){
+        updateAuthUI();
+        if(!displayMode) renderView(currentView);
+      }
+    });
+    updateAuthUI();
+    renderView("tournaments");
+    if(location.hash === "#display"){ enterDisplay(); }
+  });
+}
+
+if(window.__RALLY_CLOUD_EXPECTED){
+  (window.__rallyCloudReady || Promise.resolve(null)).then(function(rc){
+    if(rc && rc.enabled){ CLOUD = rc; bootCloud(); }
+    else { bootLocal(); }
+  });
+  // if the SDK never loads (fully offline first visit), fall back after a timeout
+  setTimeout(function(){ if(!__booted){ bootLocal(); } }, 6000);
+} else {
+  bootLocal();
+}
 })();
 </script>
 
