@@ -58,7 +58,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
   .btn svg.lu{ margin-right:5px; vertical-align:-3px; }
 
   /* ---------- app shell: sidebar + main ---------- */
-  .app{ display:flex; height:100dvh; }
+  .app{ display:flex; height:100vh; height:100dvh; }
   .side{
     width:216px; flex:0 0 216px; background:#0A0D0B; border-right:1px solid var(--line);
     display:flex; flex-direction:column; padding:16px 10px 12px; gap:3px;
@@ -81,7 +81,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
     font-size:11px; color:var(--dim); line-height:1.6; overflow:hidden;
   }
   .side-foot b{ color:var(--ink); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .main{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; }
   .views{ flex:1; min-height:0; position:relative; }
   .view{ display:none; height:100%; }
   .view.active{ display:block; }
