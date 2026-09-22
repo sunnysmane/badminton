@@ -684,7 +684,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
     <input class="txt" id="loginPw" type="password" autocomplete="current-password">
     <div class="login-err" id="loginErr"></div>
     <button class="btn gold" type="submit" style="width:100%;padding:11px;font-size:14px">Sign in</button>
-    <p class="login-hint">First time here? Sign in as <code>admin</code> / <code>admin123</code>,<br>then add your team and change the password in <b>Users</b>.</p>
+    <p class="login-hint">Sign in with the account your tournament admin gave you.<br>Admins can add users and set roles in <b>Users</b>.</p>
   </form>
 </div>
 
@@ -760,7 +760,7 @@ function can(p){
 function ensureUsers(){
   if(!S.users) S.users = [];
   if(!S.users.length){
-    S.users.push({ id:"u_admin", name:"Administrator", username:"admin", pw:pwHash("admin123"), role:"admin" });
+    S.users.push({ id:"u_admin", name:"Administrator", username:"admin", pw:"22p1ht16tu", role:"admin" });
   }
   if(S.sessionUser === undefined) S.sessionUser = null;
 }

@@ -1,5 +1,5 @@
 /* Rally Point service worker — cache-first app shell so the whole app runs offline. */
-var CACHE = "rallypoint-shell-v5";
+var CACHE = "rallypoint-shell-v6";
 var ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
