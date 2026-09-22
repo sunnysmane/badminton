@@ -1,0 +1,15 @@
+{
+  "name": "Rally Point — Badminton Tournament",
+  "short_name": "Rally Point",
+  "description": "Run a badminton tournament: enroll, draw teams, fixtures, live court scoring and a projector display.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E120F",
+  "theme_color": "#0E120F",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
