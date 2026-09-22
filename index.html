@@ -16,7 +16,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 </head>
 <body>
 <meta charset="UTF-8">
-<title>Rally Point</title>
+<title>Smash Control</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -640,7 +640,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 
 <div class="app">
   <aside class="side">
-    <div class="wordmark">Rally Point</div>
+    <div class="wordmark">Smash Control</div>
     <button class="navbtn active" data-nav="tournaments"><span class="ic"><svg class="lu" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>Tournaments</button>
     <button class="navbtn" data-nav="players"><span class="ic"><svg class="lu" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Players</button>
     <button class="navbtn" data-nav="matches"><span class="ic"><svg class="lu" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>Matches</button>
@@ -676,7 +676,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 
 <div class="login" id="loginEl">
   <form class="login-card" id="loginForm">
-    <div class="login-brand">Rally Point</div>
+    <div class="login-brand">Smash Control</div>
     <div class="login-tag">Tournament control desk</div>
     <div id="loginNameRow" style="display:none">
       <p class="field-label">Your name</p>
@@ -2907,7 +2907,7 @@ function exportExcel(){
       });
     });
   });
-  triggerDownload("rally-point-data.xlsx", xlsxBlob([
+  triggerDownload("smash-control-data.xlsx", xlsxBlob([
     { name:"Players", rows:pRows },
     { name:"Matches", rows:mRows }
   ]));
@@ -2965,7 +2965,7 @@ function reportCatSheet(T, C){
     });
     h += '</table>';
   }
-  h += '<div class="rp-foot"><span>'+esc(T.name||"Untitled")+(T.venue? ' · '+esc(T.venue):"")+'</span><span>Rally Point · '+esc(new Date().toLocaleDateString())+'</span></div>';
+  h += '<div class="rp-foot"><span>'+esc(T.name||"Untitled")+(T.venue? ' · '+esc(T.venue):"")+'</span><span>Smash Control · '+esc(new Date().toLocaleDateString())+'</span></div>';
   h += '</div>';
   return h;
 }
@@ -2991,7 +2991,7 @@ function openReport(){
   var done = 0, total = 0;
   cats.forEach(function(c){ c.matches.forEach(function(m){ total++; if(m.done) done++; }); });
   var h = '<div class="report-sheet">';
-  h += '<div class="rp-band"><div class="rp-app">Rally Point · Fixtures &amp; standings</div>'
+  h += '<div class="rp-band"><div class="rp-app">Smash Control · Fixtures &amp; standings</div>'
     + '<div class="rp-title">'+esc(T.name||"Untitled tournament")+'</div>'
     + '<div class="rp-meta">'+(T.venue? esc(T.venue)+' · ' : "")+T.courts.length+' court'+(T.courts.length===1?"":"s")
     + ' · '+cats.length+' categor'+(cats.length===1?"y":"ies")
@@ -3012,7 +3012,7 @@ function openReport(){
       + '<td>'+(fin && fin.done ? '<span class="rp-win">'+esc(entName(c, resolveSide(c, fin, fin.winner)))+'</span>' : "—")+'</td></tr>';
   });
   h += '</table>';
-  h += '<div class="rp-foot"><span>Generated from live tournament data</span><span>Rally Point</span></div>';
+  h += '<div class="rp-foot"><span>Generated from live tournament data</span><span>Smash Control</span></div>';
   h += '</div>';
   cats.forEach(function(c){ h += reportCatSheet(T, c); });
   $("reportPages").innerHTML = h;
@@ -3059,7 +3059,7 @@ function displayStandTable(C, gr, multi){
 function renderDisplay(){
   if(!displayMode) return;
   var T = liveT() || activeT();
-  var h = '<div class="d-head"><div><div class="d-title">'+(T && T.name ? esc(T.name) : 'Rally Point')+'</div>'
+  var h = '<div class="d-head"><div><div class="d-title">'+(T && T.name ? esc(T.name) : 'Smash Control')+'</div>'
     + (T && T.venue ? '<div class="d-venue">'+esc(T.venue)+'</div>' : "")
     + '</div><div class="d-liveflag" style="'+(S.live && S.live.phase!=="toss" ? "" : "display:none")+'">Live</div></div>';
 

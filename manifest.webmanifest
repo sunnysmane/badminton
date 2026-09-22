@@ -1,6 +1,6 @@
 {
-  "name": "Rally Point — Badminton Tournament",
-  "short_name": "Rally Point",
+  "name": "Smash Control — Badminton Tournament",
+  "short_name": "Smash Control",
   "description": "Run a badminton tournament: enroll, draw teams, fixtures, live court scoring and a projector display.",
   "start_url": "./",
   "scope": "./",
